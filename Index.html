@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Ventas &amp; CxC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#F7F5F1;
+  --surface:#FFFFFF;
+  --ink:#1B2A3D;
+  --ink-soft:#5B6B7C;
+  --border:#E4E0D8;
+  --accent:#2E7D6B;      /* cobrado / positivo */
+  --amber:#C97B2E;       /* pendiente / vigente */
+  --red:#B3382C;         /* vencido */
+  --red-soft:#F4E3E0;
+  --amber-soft:#F7EBDC;
+  --accent-soft:#E1EEEA;
+  --radius:10px;
+  --font-display:'Space Grotesk',sans-serif;
+  --font-body:'Inter',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+a{color:inherit;}
+::selection{background:var(--accent-soft);}
+
+/* ---------- LOGIN ---------- */
+#login-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:24px;
+}
+.login-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:40px 32px;width:100%;max-width:380px;
+}
+.login-card h1{
+  font-family:var(--font-display);font-size:1.5rem;font-weight:700;margin-bottom:4px;
+}
+.login-card .sub{color:var(--ink-soft);font-size:.875rem;margin-bottom:28px;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:.75rem;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+.field input,.field select,.field textarea{
+  width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:8px;
+  font-size:.95rem;background:var(--bg);color:var(--ink);
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  outline:none;border-color:var(--ink);background:var(--surface);
+}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:11px 20px;border-radius:8px;border:none;font-weight:600;font-size:.9rem;
+  transition:opacity .15s;
+}
+.btn:active{opacity:.75;}
+.btn-primary{background:var(--ink);color:#fff;}
+.btn-block{width:100%;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--ink);}
+.btn-accent{background:var(--accent);color:#fff;}
+.error-msg{color:var(--red);font-size:.85rem;margin-top:10px;}
+
+/* ---------- APP SHELL ---------- */
+#app{display:none;min-height:100vh;}
+.shell{display:flex;min-height:100vh;}
+.sidebar{
+  width:220px;flex-shrink:0;background:var(--ink);color:#fff;
+  padding:24px 0;position:fixed;top:0;left:0;bottom:0;overflow-y:auto;
+}
+.sidebar .brand{
+  font-family:var(--font-display);font-weight:700;font-size:1.1rem;padding:0 24px 20px;
+  border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:12px;
+}
+.sidebar .brand small{display:block;font-family:var(--font-body);font-weight:400;color:rgba(255,255,255,.55);font-size:.7rem;margin-top:2px;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:11px 24px;color:rgba(255,255,255,.7);
+  font-size:.875rem;font-weight:500;cursor:pointer;border-left:3px solid transparent;
+}
+.nav-item:hover{color:#fff;background:rgba(255,255,255,.05);}
+.nav-item.active{color:#fff;background:rgba(255,255,255,.08);border-left-color:var(--accent);}
+.nav-item .ic{width:18px;text-align:center;}
+.sidebar-footer{padding:16px 24px;border-top:1px solid rgba(255,255,255,.12);margin-top:12px;}
+.sidebar-footer .who{font-size:.8rem;color:rgba(255,255,255,.6);margin-bottom:8px;}
+.sidebar-footer .who b{color:#fff;display:block;}
+
+.main{flex:1;margin-left:220px;padding:28px 32px 90px;max-width:1200px;}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.topbar h1{font-family:var(--font-display);font-size:1.4rem;font-weight:700;}
+.topbar .sub{color:var(--ink-soft);font-size:.85rem;margin-top:2px;}
+
+/* mobile bottom nav */
+.bottom-nav{display:none;}
+
+/* ---------- CARDS / TABLES ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+.kpi .label{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-weight:600;margin-bottom:8px;}
+.kpi .value{font-family:var(--font-mono);font-size:1.5rem;font-weight:600;}
+.kpi .value.red{color:var(--red);}
+.kpi .value.amber{color:var(--amber);}
+.kpi .value.accent{color:var(--accent);}
+
+table{width:100%;border-collapse:collapse;font-size:.875rem;}
+th{text-align:left;padding:10px 12px;font-size:.7rem;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);border-bottom:1px solid var(--border);font-weight:600;}
+td{padding:12px;border-bottom:1px solid var(--border);}
+tr:last-child td{border-bottom:none;}
+tr.row-click{cursor:pointer;}
+tr.row-click:hover{background:var(--bg);}
+.num{font-family:var(--font-mono);text-align:right;}
+.table-wrap{overflow-x:auto;}
+
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:600;}
+.badge-vigente{background:var(--amber-soft);color:var(--amber);}
+.badge-pagada{background:var(--accent-soft);color:var(--accent);}
+.badge-vencida{background:var(--red-soft);color:var(--red);}
+
+/* antigüedad bar - signature element */
+.aging-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--border);margin-top:6px;}
+.aging-bar span{height:100%;}
+.aging-legend{display:flex;gap:14px;font-size:.72rem;color:var(--ink-soft);margin-top:8px;flex-wrap:wrap;}
+.aging-legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;}
+
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+.toolbar input[type=search],.toolbar select{
+  padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;background:var(--surface);
+}
+.spacer{flex:1;}
+
+.empty-state{text-align:center;padding:50px 20px;color:var(--ink-soft);}
+.empty-state .big{font-size:2rem;margin-bottom:8px;}
+
+/* modal */
+.modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(27,42,61,.45);z-index:50;
+  align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;
+}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--surface);border-radius:14px;width:100%;max-width:560px;padding:28px;}
+.modal.wide{max-width:760px;}
+.modal h2{font-family:var(--font-display);font-size:1.15rem;margin-bottom:18px;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+.partida-row{display:grid;grid-template-columns:2fr 90px 110px 110px 30px;gap:8px;align-items:center;margin-bottom:8px;}
+.partida-row input{padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:.85rem;}
+.remove-btn{background:none;border:none;color:var(--red);font-size:1.1rem;cursor:pointer;}
+.total-line{display:flex;justify-content:space-between;padding:6px 0;font-size:.9rem;}
+.total-line.grand{font-weight:700;font-size:1.05rem;border-top:1px solid var(--border);margin-top:6px;padding-top:10px;font-family:var(--font-mono);}
+
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:12px 20px;border-radius:8px;font-size:.85rem;
+  z-index:100;display:none;
+}
+.toast.show{display:block;}
+
+@media(max-width:860px){
+  .sidebar{display:none;}
+  .main{margin-left:0;padding:20px 16px 90px;}
+  .bottom-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--surface);
+    border-top:1px solid var(--border);z-index:40;padding:6px 0;
+  }
+  .bottom-nav .nav-item{
+    flex:1;flex-direction:column;gap:2px;padding:8px 4px;font-size:.65rem;text-align:center;
+    color:var(--ink-soft);border-left:none;border-top:3px solid transparent;
+  }
+  .bottom-nav .nav-item.active{color:var(--ink);border-top-color:var(--accent);background:none;}
+  .bottom-nav .ic{font-size:1.15rem;}
+  .grid2{grid-template-columns:1fr;}
+  .partida-row{grid-template-columns:1fr;gap:4px;background:var(--bg);padding:10px;border-radius:8px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Ventas &amp; CxC</h1>
+    <div class="sub">Inicia sesión para continuar</div>
+    <div class="field">
+      <label>Correo</label>
+      <input type="email" id="login-email" placeholder="tucorreo@empresa.com">
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="login-pass" placeholder="••••••••">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="doLogin()">Entrar</button>
+    <div class="error-msg" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app">
+<div class="shell">
+  <div class="sidebar">
+    <div class="brand">Ventas &amp; CxC<small>Control interno</small></div>
+    <div class="nav-item active" data-view="dashboard"><span class="ic">◆</span> Dashboard</div>
+    <div class="nav-item" data-view="clientes"><span class="ic">◇</span> Clientes</div>
+    <div class="nav-item" data-view="articulos"><span class="ic">▢</span> Artículos</div>
+    <div class="nav-item" data-view="pedidos"><span class="ic">▥</span> Pedidos</div>
+    <div class="nav-item" data-view="ventas"><span class="ic">▤</span> Ventas</div>
+    <div class="nav-item" data-view="cobranza"><span class="ic">◈</span> Cobranza</div>
+    <div class="nav-item" data-view="anticipos"><span class="ic">✦</span> Anticipos</div>
+    <div class="nav-item" data-view="cxc"><span class="ic">▦</span> CxC / Antigüedad</div>
+    <div class="sidebar-footer">
+      <div class="who"><b id="who-name">—</b><span id="who-role">—</span></div>
+      <button class="btn btn-outline btn-block" onclick="doLogout()" style="color:#fff;border-color:rgba(255,255,255,.25)">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="view-title">Dashboard</h1>
+        <div class="sub" id="view-sub">Resumen general</div>
+      </div>
+      <div id="topbar-action"></div>
+    </div>
+    <div id="view-content"></div>
+  </div>
+</div>
+
+<div class="bottom-nav">
+  <div class="nav-item active" data-view="dashboard"><span class="ic">◆</span>Inicio</div>
+  <div class="nav-item" data-view="clientes"><span class="ic">◇</span>Clientes</div>
+  <div class="nav-item" data-view="pedidos"><span class="ic">▥</span>Pedidos</div>
+  <div class="nav-item" data-view="ventas"><span class="ic">▤</span>Ventas</div>
+  <div class="nav-item" data-view="cobranza"><span class="ic">◈</span>Cobros</div>
+  <div class="nav-item" data-view="cxc"><span class="ic">▦</span>CxC</div>
+</div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal-box"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIGURACIÓN — reemplaza con tus credenciales de Supabase
+   ============================================================ */
+const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
+const SUPABASE_ANON_KEY = 'TU_ANON_KEY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let CURRENT_USER = null;   // { id, nombre, rol }
+let CACHE = { clientes:[], articulos:[], vendedores:[] };
+
+/* ---------------- AUTH ---------------- */
+async function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if(!email || !pass){ errEl.textContent = 'Ingresa correo y contraseña.'; return; }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if(error){ errEl.textContent = 'No se pudo iniciar sesión: ' + error.message; return; }
+  await loadCurrentUser();
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  CURRENT_USER = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+async function loadCurrentUser(){
+  const { data: { user } } = await sb.auth.getUser();
+  if(!user){ return; }
+  let { data: perfil, error } = await sb.from('usuarios').select('*').eq('id', user.id).single();
+  if(error || !perfil){
+    toast('Tu cuenta no tiene perfil asignado. Pide a un admin que te dé de alta en "usuarios".');
+    return;
+  }
+  CURRENT_USER = { id: user.id, nombre: perfil.nombre, rol: perfil.rol };
+  document.getElementById('who-name').textContent = perfil.nombre;
+  document.getElementById('who-role').textContent = perfil.rol === 'admin' ? 'Administrador' : 'Vendedor';
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await preloadCache();
+  goView('dashboard');
+}
+
+async function preloadCache(){
+  const { data: clientes } = await sb.from('clientes').select('*').eq('activo', true).order('nombre');
+  CACHE.clientes = clientes || [];
+  const { data: articulos } = await sb.from('articulos').select('*').eq('activo', true).order('descripcion');
+  CACHE.articulos = articulos || [];
+  if(CURRENT_USER.rol === 'admin'){
+    const { data: vend } = await sb.from('usuarios').select('*').eq('activo', true);
+    CACHE.vendedores = vend || [];
+  }
+}
+
+/* ---------------- NAV ---------------- */
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click', ()=> goView(el.dataset.view));
+});
+
+const VIEWS = {
+  dashboard:{ title:'Dashboard', sub:'Resumen general de cartera', render: renderDashboard },
+  clientes:{ title:'Clientes', sub:'Catálogo y saldos', render: renderClientes },
+  articulos:{ title:'Artículos y servicios', sub:'Catálogo de productos y servicios', render: renderArticulos },
+  pedidos:{ title:'Pedidos', sub:'Captura y surtido parcial', render: renderPedidos },
+  ventas:{ title:'Ventas', sub:'Facturación interna', render: renderVentas },
+  cobranza:{ title:'Cobranza', sub:'Registro y aplicación de abonos', render: renderCobranza },
+  anticipos:{ title:'Anticipos', sub:'Saldos a favor de clientes', render: renderAnticipos },
+  cxc:{ title:'Cuentas por Cobrar', sub:'Antigüedad de saldos', render: renderCxC },
+};
+
+async function goView(key){
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.view === key);
+  });
+  const v = VIEWS[key];
+  document.getElementById('view-title').textContent = v.title;
+  document.getElementById('view-sub').textContent = v.sub;
+  document.getElementById('topbar-action').innerHTML = '';
+  document.getElementById('view-content').innerHTML = '<div class="empty-state">Cargando…</div>';
+  await v.render();
+}
+
+/* ---------------- HELPERS ---------------- */
+function fmt(n, moneda){
+  const val = Number(n||0).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
+  return (moneda === 'USD' ? 'US$ ' : '$ ') + val;
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 3000);
+}
+function openModal(html){
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+document.getElementById('modal-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'modal-overlay') closeModal();
+});
+function uid(){ return crypto.randomUUID ? crypto.randomUUID() : String(Math.random()); }
+async function nextFolio(seqName, prefix){
+  const { data, error } = await sb.rpc('nextval_folio', { seq: seqName });
+  // fallback si no existe la función rpc: generar por timestamp
+  if(error){ return prefix + '-' + Date.now().toString().slice(-6); }
+  return prefix + '-' + String(data).padStart(6,'0');
+}
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+async function renderDashboard(){
+  let q = sb.from('vw_antiguedad_saldos').select('*').gt('saldo', 0);
+  if(CURRENT_USER.rol !== 'admin') q = q.eq('vendedor_id', CURRENT_USER.id);
+  const { data, error } = await q;
+  const rows = data || [];
+
+  const totalMXN = rows.filter(r=>r.moneda==='MXN').reduce((a,r)=>a+Number(r.saldo),0);
+  const totalUSD = rows.filter(r=>r.moneda==='USD').reduce((a,r)=>a+Number(r.saldo),0);
+  const vencidoMXN = rows.filter(r=>r.moneda==='MXN' && !['vigente','pagada'].includes(r.rango)).reduce((a,r)=>a+Number(r.saldo),0);
+  const vencidoUSD = rows.filter(r=>r.moneda==='USD' && !['vigente','pagada'].includes(r.rango)).reduce((a,r)=>a+Number(r.saldo),0);
+
+  const buckets = {'0-30':0,'31-60':0,'61-90':0,'90+':0};
+  rows.forEach(r=>{ if(buckets[r.rango]!==undefined) buckets[r.rango]+=Number(r.saldo); });
+  const bTotal = Object.values(buckets).reduce((a,b)=>a+b,0) || 1;
+
+  let html = `
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">Por cobrar MXN</div><div class="value">${fmt(totalMXN,'MXN')}</div></div>
+    <div class="kpi"><div class="label">Por cobrar USD</div><div class="value">${fmt(totalUSD,'USD')}</div></div>
+    <div class="kpi"><div class="label">Vencido MXN</div><div class="value red">${fmt(vencidoMXN,'MXN')}</div></div>
+    <div class="kpi"><div class="label">Vencido USD</div><div class="value red">${fmt(vencidoUSD,'USD')}</div></div>
+  </div>
+  <div class="card">
+    <div style="font-weight:600;margin-bottom:4px;">Antigüedad de saldos (todas las monedas convertidas a informativo)</div>
+    <div class="aging-bar">
+      <span style="width:${buckets['0-30']/bTotal*100}%;background:var(--amber)"></span>
+      <span style="width:${buckets['31-60']/bTotal*100}%;background:#D9A44E"></span>
+      <span style="width:${buckets['61-90']/bTotal*100}%;background:#C0602E"></span>
+      <span style="width:${buckets['90+']/bTotal*100}%;background:var(--red)"></span>
+    </div>
+    <div class="aging-legend">
+      <span><i class="dot" style="background:var(--amber)"></i>0-30 días: ${fmt(buckets['0-30'],'MXN')}</span>
+      <span><i class="dot" style="background:#D9A44E"></i>31-60: ${fmt(buckets['31-60'],'MXN')}</span>
+      <span><i class="dot" style="background:#C0602E"></i>61-90: ${fmt(buckets['61-90'],'MXN')}</span>
+      <span><i class="dot" style="background:var(--red)"></i>90+: ${fmt(buckets['90+'],'MXN')}</span>
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-weight:600;margin-bottom:12px;">Facturas con mayor saldo vencido</div>
+    <div class="table-wrap"><table>
+      <tr><th>Folio</th><th>Cliente</th><th>Vence</th><th>Días vencido</th><th class="num">Saldo</th></tr>
+      ${rows.filter(r=>!['vigente','pagada'].includes(r.rango)).sort((a,b)=>b.dias_vencido-a.dias_vencido).slice(0,8)
+        .map(r=>`<tr><td>${r.folio}</td><td>${r.cliente_nombre}</td><td>${r.fecha_vencimiento}</td><td>${r.dias_vencido}</td><td class="num">${fmt(r.saldo,r.moneda)}</td></tr>`).join('') || '<tr><td colspan="5" style="color:var(--ink-soft)">Sin facturas vencidas 🎉</td></tr>'}
+    </table></div>
+  </div>`;
+  document.getElementById('view-content').innerHTML = html;
+}
+
+/* ============================================================
+   CLIENTES
+   ============================================================ */
+async function renderClientes(){
+  document.getElementById('topbar-action').innerHTML = `<button class="btn btn-primary" onclick="modalCliente()">+ Nuevo cliente</button>`;
+  let q = sb.from('clientes').select('*').order('nombre');
+  if(CURRENT_USER.rol !== 'admin') q = q.eq('vendedor_id', CURRENT_USER.id);
+  const { data } = await q;
+  const rows = data || [];
+  let html = `
+  <div class="toolbar">
+    <input type="search" id="cli-search" placeholder="Buscar cliente…" oninput="filterTable('cli-search','cli-table')">
+  </div>
+  <div class="card" style="padding:0;">
+  <div class="table-wrap"><table id="cli-table">
+    <tr><th>Nombre</th><th>Teléfono</th><th>Moneda</th><th class="num">Límite crédito</th><th>Días crédito</th></tr>
+    ${rows.map(c=>`<tr class="row-click" onclick="modalCliente('${c.id}')">
+      <td>${c.nombre}${c.rfc?`<div style="color:var(--ink-soft);font-size:.75rem">${c.rfc}</div>`:''}</td>
+      <td>${c.telefono||c.whatsapp||'—'}</td>
+      <td>${c.moneda_preferida}</td>
+      <td class="num">${fmt(c.limite_credito, c.moneda_preferida)}</td>
+      <td>${c.dias_credito}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="empty-state">Sin clientes aún. Crea el primero.</td></tr>'}
+  </table></div></div>`;
+  document.getElementById('view-content').innerHTML = html;
+}
+
+function modalCliente(id){
+  const c = id ? CACHE.clientes.find(x=>x.id===id) || {} : {};
+  const vendedorOptions = CURRENT_USER.rol === 'admin'
+    ? CACHE.vendedores.map(v=>`<option value="${v.id}" ${c.vendedor_id===v.id?'selected':''}>${v.nombre}</option>`).join('')
+    : '';
+  openModal(`
+    <h2>${id?'Editar cliente':'Nuevo cliente'}</h2>
+    <div class="grid2">
+      <div class="field" style="grid-column:1/-1"><label>Nombre</label><input id="f-nombre" value="${c.nombre||''}"></div>
+      <div class="field"><label>RFC</label><input id="f-rfc" value="${c.rfc||''}"></div>
+      <div class="field"><label>Teléfono / WhatsApp</label><input id="f-tel" value="${c.telefono||''}"></div>
+      <div class="field"><label>Email</label><input id="f-email" value="${c.email||''}"></div>
+      <div class="field"><label>Ciudad</label><input id="f-ciudad" value="${c.ciudad||''}"></div>
+      <div class="field"><label>Moneda preferida</label>
+        <select id="f-moneda"><option value="MXN" ${c.moneda_preferida!=='USD'?'selected':''}>MXN</option><option value="USD" ${c.moneda_preferida==='USD'?'selected':''}>USD</option></select>
+      </div>
+      <div class="field"><label>Límite de crédito</label><input id="f-limite" type="number" step="0.01" value="${c.limite_credito||0}"></div>
+      <div class="field"><label>Días de crédito</label><input id="f-dias" type="number" value="${c.dias_credito||0}"></div>
+      ${CURRENT_USER.rol==='admin' ? `<div class="field"><label>Vendedor asignado</label><select id="f-vendedor"><option value="">—</option>${vendedorOptions}</select></div>`:''}
+      <div class="field" style="grid-column:1/-1"><label>Dirección</label><input id="f-dir" value="${c.direccion||''}"></div>
+      <div class="field" style="grid-column:1/-1"><label>Notas</label><textarea id="f-notas" rows="2">${c.notas||''}</textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCliente('${id||''}')">Guardar</button>
+    </div>
+  `);
+}
+
+async function saveCliente(id){
+  const payload = {
+    nombre: document.getElementById('f-nombre').value.trim(),
+    rfc: document.getElementById('f-rfc').value.trim(),
+    telefono: document.getElementById('f-tel').value.trim(),
+    email: document.getElementById('f-email').value.trim(),
+    ciudad: document.getElementById('f-ciudad').value.trim(),
+    moneda_preferida: document.getElementById('f-moneda').value,
+    limite_credito: Number(document.getElementById('f-limite').value||0),
+    dias_credito: Number(document.getElementById('f-dias').value||0),
+    direccion: document.getElementById('f-dir').value.trim(),
+    notas: document.getElementById('f-notas').value.trim(),
+  };
+  if(!payload.nombre){ toast('El nombre es obligatorio.'); return; }
+  if(CURRENT_USER.rol === 'admin'){
+    const vSel = document.getElementById('f-vendedor');
+    payload.vendedor_id = vSel.value || null;
+  } else {
+    payload.vendedor_id = CURRENT_USER.id;
+  }
+  let error;
+  if(id){
+    ({ error } = await sb.from('clientes').update(payload).eq('id', id));
+  } else {
+    ({ error } = await sb.from('clientes').insert(payload));
+  }
+  if(error){ toast('Error al guardar: ' + error.message); return; }
+  closeModal();
+  await preloadCache();
+  toast('Cliente guardado.');
+  renderClientes();
+}
+
+/* ============================================================
+   ARTÍCULOS
+   ============================================================ */
+async function renderArticulos(){
+  const canEdit = CURRENT_USER.rol === 'admin';
+  document.getElementById('topbar-action').innerHTML = canEdit ? `<button class="btn btn-primary" onclick="modalArticulo()">+ Nuevo artículo</button>` : '';
+  const { data } = await sb.from('articulos').select('*').order('descripcion');
+  const rows = data || [];
+  let html = `
+  <div class="toolbar"><input type="search" id="art-search" placeholder="Buscar artículo…" oninput="filterTable('art-search','art-table')"></div>
+  <div class="card" style="padding:0;"><div class="table-wrap"><table id="art-table">
+    <tr><th>Código</th><th>Descripción</th><th>Tipo</th><th class="num">Precio MXN</th><th class="num">Precio USD</th></tr>
+    ${rows.map(a=>`<tr class="row-click" onclick="${canEdit?`modalArticulo('${a.id}')`:''}">
+      <td>${a.codigo}</td><td>${a.descripcion}</td><td>${a.tipo==='servicio'?'Servicio':'Producto'}</td>
+      <td class="num">${fmt(a.precio_mxn,'MXN')}</td><td class="num">${fmt(a.precio_usd,'USD')}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="empty-state">Sin artículos aún.</td></tr>'}
+  </table></div></div>`;
+  document.getElementById('view-content').innerHTML = html;
+}
+
+function modalArticulo(id){
+  const a = id ? CACHE.articulos.find(x=>x.id===id) || {} : {};
+  openModal(`
+    <h2>${id?'Editar artículo':'Nuevo artículo'}</h2>
+    <div class="grid2">
+      <div class="field"><label>Código</label><input id="f-codigo" value="${a.codigo||''}"></div>
+      <div class="field"><label>Tipo</label>
+        <select id="f-tipo"><option value="producto" ${a.tipo!=='servicio'?'selected':''}>Producto</option><option value="servicio" ${a.tipo==='servicio'?'selected':''}>Servicio</option></select>
+      </div>
+      <div class="field" style="grid-column:1/-1"><label>Descripción</label><input id="f-desc" value="${a.descripcion||''}"></div>
+      <div class="field"><label>Precio MXN</label><input id="f-pmxn" type="number" step="0.01" value="${a.precio_mxn||0}"></div>
+      <div class="field"><label>Precio USD</label><input id="f-pusd" type="number" step="0.01" value="${a.precio_usd||0}"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveArticulo('${id||''}')">Guardar</button>
+    </div>
+  `);
+}
+
+async function saveArticulo(id){
+  const payload = {
+    codigo: document.getElementById('f-codigo').value.trim(),
+    tipo: document.getElementById('f-tipo').value,
+    descripcion: document.getElementById('f-desc').value.trim(),
+    precio_mxn: Number(document.getElementById('f-pmxn').value||0),
+    precio_usd: Number(document.getElementById('f-pusd').value||0),
+  };
+  if(!payload.codigo || !payload.descripcion){ toast('Código y descripción son obligatorios.'); return; }
+  let error;
+  if(id){ ({ error } = await sb.from('articulos').update(payload).eq('id', id)); }
+  else { ({ error } = await sb.from('articulos').insert(payload)); }
+  if(error){ toast('Error: ' + error.message); return; }
+  closeModal();
+  await preloadCache();
+  toast('Artículo guardado.');
+  renderArticulos();
+}
+
+/* ============================================================
+   PEDIDOS (con surtido parcial)
+   ============================================================ */
+function badgePedido(estatus){
+  const map = { pendiente:'vigente', parcial:'vigente', surtido:'pagada', cancelado:'vencida' };
+  const label = { pendiente:'Pendiente', parcial:'Parcial', surtido:'Surtido', cancelado:'Cancelado' };
+  return `<span class="badge badge-${map[estatus]||'vigente'}">${label[estatus]||estatus}</span>`;
+}
+
+async function renderPedidos(){
+  document.getElementById('topbar-action').innerHTML = `<button class="btn btn-primary" onclick="modalPedido()">+ Nuevo pedido</button>`;
+  let q = sb.from('pedidos').select('*, clientes(nombre)').order('creado_en', {ascending:false}).limit(100);
+  if(CURRENT_USER.rol !== 'admin') q = q.eq('vendedor_id', CURRENT_USER.id);
+  const { data } = await q;
+  const rows = data || [];
+  let html = `
+  <div class="toolbar"><input type="search" id="p-search" placeholder="Buscar folio o cliente…" oninput="filterTable('p-search','p-table')"></div>
+  <div class="card" style="padding:0;"><div class="table-wrap"><table id="p-table">
+    <tr><th>Folio</th><th>Cliente</th><th>Fecha</th><th>Estatus</th><th></th></tr>
+    ${rows.map(p=>`<tr>
+      <td>${p.folio}</td><td>${p.clientes?.nombre||'—'}</td><td>${p.fecha}</td>
+      <td>${badgePedido(p.estatus)}</td>
+      <td>${p.estatus==='pendiente'||p.estatus==='parcial' ? `<button class="btn btn-accent" style="padding:6px 12px;font-size:.78rem;" onclick="modalSurtir('${p.id}')">Surtir</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="empty-state">Sin pedidos registrados aún.</td></tr>'}
+  </table></div></div>`;
+  document.getElementById('view-content').innerHTML = html;
+}
+
+let pedidoPartidas = [];
+
+function modalPedido(){
+  pedidoPartidas = [{id:uid(), articulo_id:'', descripcion:'', cantidad:1, precio:0}];
+  const clienteOptions = CACHE.clientes.map(c=>`<option value="${c.id}" data-moneda="${c.moneda_preferida}">${c.nombre}</option>`).join('');
+  openModal(`
+    <h2>Nuevo pedido</h2>
+    <div class="grid2">
+      <div class="field"><label>Cliente</label><select id="p-cliente" onchange="onClientePedidoChange()"><option value="">Selecciona…</option>${clienteOptions}</select></div>
+      <div class="field"><label>Moneda</label><select id="p-moneda" onchange="renderPedidoPartidas()"><option value="MXN">MXN</option><option value="USD">USD</option></select></div>
+      <div class="field"><label>Fecha</label><input id="p-fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+    </div>
+    <div style="margin-top:14px;font-weight:600;font-size:.85rem;">Partidas pedidas</div>
+    <div id="pedido-partidas-container"></div>
+    <button class="btn btn-outline" style="margin-top:6px;" onclick="addPedidoPartida()">+ Agregar partida</button>
+    <div class="field" style="margin-top:14px;"><label>Notas</label><textarea id="p-notas" rows="2"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePedido()">Guardar pedido</button>
+    </div>
+  `);
+  renderPedidoPartidas();
+}
+function onClientePedidoChange(){
+  const sel = document.getElementById('p-cliente');
+  const opt = sel.selectedOptions[0];
+  if(opt && opt.dataset.moneda) document.getElementById('p-moneda').value = opt.dataset.moneda;
+}
+function renderPedidoPartidas(){
+  const moneda = document.getElementById('p-moneda').value;
+  const articuloOptions = CACHE.articulos.map(a=>`<option value="${a.id}" data-precio="${moneda==='USD'?a.precio_usd:a.precio_mxn}" data-desc="${a.descripcion}">${a.codigo} — ${a.descripcion}</option>`).join('');
+  const cont = document.getElementById('pedido-partidas-container');
+  cont.innerHTML = pedidoPartidas.map((p,i)=>`
+    <div class="partida-row">
+      <select onchange="onPedidoArticuloSel(${i}, this)"><option value="">Artículo / servicio…</option>${articuloOptions}</select>
+      <input type="number" min="0" step="0.01" value="${p.cantidad}" placeholder="Cant." onchange="pedidoPartidas[${i}].cantidad=Number(this.value);">
+      <input type="number" min="0" step="0.01" value="${p.precio}" placeholder="Precio" onchange="pedidoPartidas[${i}].precio=Number(this.value);">
+      <input disabled value="${fmt(p.cantidad*p.precio, moneda)}">
+      <button class="remove-btn" onclick="removePedidoPartida(${i})">✕</button>
+    </div>
+  `).join('');
+}
+function onPedidoArticuloSel(i, el){
+  const opt = el.selectedOptions[0];
+  pedidoPartidas[i].articulo_id = opt.value;
+  pedidoPartidas[i].descripcion = opt.dataset.desc || '';
+  pedidoPartidas[i].precio = Number(opt.dataset.precio || 0);
+  renderPedidoPartidas();
+}
+function addPedidoPartida(){ pedidoPartidas.push({id:uid(), articulo_id:'', descripcion:'', cantidad:1, precio:0}); renderPedidoPartidas(); }
+function removePedidoPartida(i){ pedidoPartidas.splice(i,1); if(pedidoPartidas.length===0) pedidoPartidas.push({id:uid(),articulo_id:'',descripcion:'',cantidad:1,precio:0}); renderPedidoPartidas(); }
+
+async function savePedido(){
+  const clienteId = document.getElementById('p-cliente').value;
+  if(!clienteId){ toast('Selecciona un cliente.'); return; }
+  const validas = pedidoPartidas.filter(p=>p.articulo_id && p.cantidad>0);
+  if(validas.length===0){ toast('Agrega al menos una partida.'); return; }
+  const moneda = document.getElementById('p-moneda').value;
+  const fecha = document.getElementById('p-fecha').value;
+  const notas = document.getElementById('p-notas').value.trim();
+  const folio = 'P-' + Date.now().toString().slice(-8);
+
+  const { data: pedido, error } = await sb.from('pedidos').insert({
+    folio, cliente_id: clienteId, vendedor_id: CURRENT_USER.id, fecha, moneda, notas
+  }).select().single();
+  if(error){ toast('Error al guardar pedido: ' + error.message); return; }
+
+  const partidasPayload = validas.map(p=>({
+    pedido_id: pedido.id, articulo_id: p.articulo_id, descripcion: p.descripcion,
+    cantidad_pedida: p.cantidad, cantidad_surtida: 0, precio_unitario: p.precio
+  }));
+  const { error: e2 } = await sb.from('pedido_partidas').insert(partidasPayload);
+  if(e2){ toast('Pedido creado pero hubo un error en partidas: ' + e2.message); }
+
+  closeModal();
+  toast('Pedido ' + folio + ' guardado.');
+  renderPedidos();
+}
+
+async function modalSurtir(pedidoId){
+  const { data: pedido } = await sb.from('pedidos').select('*, clientes(nombre)').eq('id', pedidoId).single();
+  const { data: partidas } = await sb.from('pedido_partidas').select('*').eq('pedido_id', pedidoId);
+  const pendientes = (partidas||[]).filter(p=>p.cantidad_surtida < p.cantidad_pedida);
+  if(pendientes.length===0){ toast('Este pedido ya está completamente surtido.'); return; }
+
+  openModal(`
+    <h2>Surtir pedido ${pedido.folio}</h2>
+    <div style="color:var(--ink-soft);font-size:.85rem;margin-bottom:14px;">Cliente: ${pedido.clientes?.nombre||'—'} · Indica cuánto entregas hoy de cada partida pendiente. Se generará una venta con lo surtido y se descontará existencia.</div>
+    <div id="surtir-container">
+      ${pendientes.map(p=>{
+        const rest = Number(p.cantidad_pedida) - Number(p.cantidad_surtida);
+        return `<div class="partida-row" style="grid-template-columns:2fr 90px 90px;" data-pp-id="${p.id}" data-max="${rest}">
+          <div>${p.descripcion}<div style="color:var(--ink-soft);font-size:.72rem;">Pendiente: ${rest}</div></div>
+          <input type="number" min="0" max="${rest}" step="0.01" value="${rest}" class="surtir-cant">
+          <div class="num" style="align-self:center;">de ${p.cantidad_pedida}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveSurtido('${pedidoId}')">Confirmar surtido</button>
+    </div>
+  `);
+}
+
+async function saveSurtido(pedidoId){
+  const rows = document.querySelectorAll('#surtir-container [data-pp-id]');
+  const items = [];
+  rows.forEach(row=>{
+    const cant = Number(row.querySelector('.surtir-cant').value||0);
+    const max = Number(row.dataset.max);
+    if(cant>0){ items.push({ pedido_partida_id: row.dataset.ppId, cantidad: Math.min(cant, max) }); }
+  });
+  if(items.length===0){ toast('Indica al menos una cantidad a surtir.'); return; }
+  const { data, error } = await sb.rpc('fn_surtir_pedido', { p_pedido_id: pedidoId, p_items: items });
+  if(error){ toast('Error al surtir: ' + error.message); return; }
+  closeModal();
+  toast('Surtido registrado. Venta generada correctamente.');
+  await preloadCache();
+  renderPedidos();
+}
+
+/* ============================================================
+   VENTAS
+   ============================================================ */
+async function renderVentas(){
+  document.getElementById('topbar-action').innerHTML = `<button class="btn btn-primary" onclick="modalVenta()">+ Nueva venta</button>`;
+  let q = sb.from('ventas').select('*, clientes(nombre)').order('creado_en', {ascending:false}).limit(100);
+  if(CURRENT_USER.rol !== 'admin') q = q.eq('vendedor_id', CURRENT_USER.id);
+  const { data } = await q;
+  const rows = data || [];
+  let html = `
+  <div class="toolbar"><input type="search" id="v-search" placeholder="Buscar folio o cliente…" oninput="filterTable('v-search','v-table')"></div>
+  <div class="card" style="padding:0;"><div class="table-wrap"><table id="v-table">
+    <tr><th>Folio</th><th>Cliente</th><th>Fecha</th><th>Estatus</th><th class="num">Total</th><th class="num">Saldo</th></tr>
+    ${rows.map(v=>`<tr>
+      <td>${v.folio}</td><td>${v.clientes?.nombre||'—'}</td><td>${v.fecha}</td>
+      <td><span class="badge badge-${v.estatus==='pagada'?'pagada':(v.saldo>0 && v.fecha_vencimiento<new Date().toISOString().slice(0,10)?'vencida':'vigente')}">${v.estatus==='pagada'?'Pagada':(v.saldo>0 && v.fecha_vencimiento<new Date().toISOString().slice(0,10)?'Vencida':'Vigente')}</span></td>
+      <td class="num">${fmt(v.total, v.moneda)}</td><td class="num">${fmt(v.saldo, v.moneda)}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="empty-state">Sin ventas registradas aún.</td></tr>'}
+  </table></div></div>`;
+  document.getElementById('view-content').innerHTML = html;
+}
+
+let ventaPartidas = [];
+
+function modalVenta(){
+  ventaPartidas = [{id:uid(), articulo_id:'', descripcion:'', cantidad:1, precio:0}];
+  const clienteOptions = CACHE.clientes.map(c=>`<option value="${c.id}" data-moneda="${c.moneda_preferida}" data-dias="${c.dias_credito}">${c.nombre}</option>`).join('');
+  openModal(`
+    <h2>Nueva venta</h2>
+    <div class="grid2">
+      <div class="field"><label>Cliente</label><select id="v-cliente" onchange="onClienteChange()"><option value="">Selecciona…</option>${clienteOptions}</select></div>
+      <div class="field"><label>Moneda</label>
+        <select id="v-moneda" onchange="renderPartidas()"><option value="MXN">MXN</option><option value="USD">USD</option></select>
+      </div>
+      <div class="field"><label>Fecha</label><input id="v-fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Días de crédito</label><input id="v-dias" type="number" value="0"></div>
+    </div>
+    <div style="margin-top:14px;font-weight:600;font-size:.85rem;">Partidas</div>
+    <div id="partidas-container"></div>
+    <button class="btn btn-outline" style="margin-top:6px;" onclick="addPartida()">+ Agregar partida</button>
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;">
+      <div class="total-line"><span>Subtotal</span><span id="v-subtotal">$ 0.00</span></div>
+      <div class="total-line"><span>IVA (16%)</span><span id="v-iva">$ 0.00</span></div>
+      <div class="total-line grand"><span>Total</span><span id="v-total">$ 0.00</span></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveVenta()">Guardar venta</button>
+    </div>
+  `);
+  renderPartidas();
+}
+
+function onClienteChange(){
+  const sel = document.getElementById('v-cliente');
+  const opt = sel.selectedOptions[0];
+  if(opt && opt.dataset.moneda) document.getElementById('v-moneda').value = opt.dataset.moneda;
+  if(opt && opt.dataset.dias) document.getElementById('v-dias').value = opt.dataset.dias;
+}
+
+function renderPartidas(){
+  const moneda = document.getElementById('v-moneda').value;
+  const articuloOptions = CACHE.articulos.map(a=>`<option value="${a.id}" data-precio="${moneda==='USD'?a.precio_usd:a.precio_mxn}" data-desc="${a.descripcion}">${a.codigo} — ${a.descripcion}</option>`).join('');
+  const cont = document.getElementById('partidas-container');
+  cont.innerHTML = ventaPartidas.map((p,i)=>`
+    <div class="partida-row">
+      <select onchange="onArticuloSel(${i}, this)"><option value="">Artículo / servicio…</option>${articuloOptions}</select>
+      <input type="number" min="0" step="0.01" value="${p.cantidad}" placeholder="Cant." onchange="ventaPartidas[${i}].cantidad=Number(this.value);calcTotales();">
+      <input type="number" min="0" step="0.01" value="${p.precio}" placeholder="Precio" onchange="ventaPartidas[${i}].precio=Number(this.value);calcTotales();">
+      <input disabled value="${fmt(p.cantidad*p.precio, moneda)}" id="importe-${i}">
+      <button class="remove-btn" onclick="removePartida(${i})">✕</button>
+    </div>
+  `).join('');
+  calcTotales();
+}
+function onArticuloSel(i, el){
+  const opt = el.selectedOptions[0];
+  ventaPartidas[i].articulo_id = opt.value;
+  ventaPartidas[i].descripcion = opt.dataset.desc || '';
+  ventaPartidas[i].precio = Number(opt.dataset.precio || 0);
+  renderPartidas();
+}
+function addPartida(){ ventaPartidas.push({id:uid(), articulo_id:'', descripcion:'', cantidad:1, precio:0}); renderPartidas(); }
+function removePartida(i){ ventaPartidas.splice(i,1); if(ventaPartidas.length===0) ventaPartidas.push({id:uid(),articulo_id:'',descripcion:'',cantidad:1,precio:0}); renderPartidas(); }
+function calcTotales(){
+  const moneda = document.getElementById('v-moneda').value;
+  document.querySelectorAll('.partida-row').forEach((row,i)=>{
+    const el = document.getElementById('importe-'+i);
+    if(el) el.value = fmt(ventaPartidas[i].cantidad * ventaPartidas[i].precio, moneda);
+  });
+  const subtotal = ventaPartidas.reduce((a,p)=>a+p.cantidad*p.precio,0);
+  const iva = subtotal * 0.16;
+  document.getElementById('v-subtotal').textContent = fmt(subtotal, moneda);
+  document.getElementById('v-iva').textContent = fmt(iva, moneda);
+  document.getElementById('v-total').textContent = fmt(subtotal+iva, moneda);
+}
+
+async function saveVenta(){
+  const clienteId = document.getElementById('v-cliente').value;
+  if(!clienteId){ toast('Selecciona un cliente.'); return; }
+  const validas = ventaPartidas.filter(p=>p.articulo_id && p.cantidad>0);
+  if(validas.length===0){ toast('Agrega al menos una partida.'); return; }
+  const moneda = document.getElementById('v-moneda').value;
+  const fecha = document.getElementById('v-fecha').value;
+  const dias = Number(document.getElementById('v-dias').value||0);
+  const subtotal = validas.reduce((a,p)=>a+p.cantidad*p.precio,0);
+  const iva = subtotal*0.16;
+  const total = subtotal+iva;
+  const folio = 'V-' + Date.now().toString().slice(-8);
+
+  const { data: venta, error } = await sb.from('ventas').insert({
+    folio, cliente_id: clienteId, vendedor_id: CURRENT_USER.id, fecha,
+    moneda, tipo_cambio: 1, subtotal, iva, total, saldo: total, dias_credito: dias
+  }).select().single();
+  if(error){ toast('Error al guardar venta: ' + error.message); return; }
+
+  const partidasPayload = validas.map(p=>({
+    venta_id: venta.id, articulo_id: p.articulo_id, descripcion: p.descripcion,
+    cantidad: p.cantidad, precio_unitario: p.precio, importe: p.cantidad*p.precio
+  }));
+  const { error: e2 } = await sb.from('venta_partidas').insert(partidasPayload);
+  if(e2){ toast('Venta creada pero hubo un error en partidas: ' + e2.message); }
+
+  closeModal();
+  toast('Venta ' + folio + ' guardada.');
+  renderVentas();
+}
+
+/* ============================================================
+   COBRANZA
+   ============================================================ */
+async function renderCobranza(){
+  document.getElementById('topbar-action').innerHTML = `<button class="btn btn-accent" onclick="modalCobro()">+ Registrar cobro</button>`;
+  let q = sb.from('cobros').select('*, clientes(nombre)').order('creado_en', {ascending:false}).limit(100);
+  if(CURRENT_USER.rol !== 'admin') q = q.eq('vendedor_id', CURRENT_USER.id);
+  const { data } = await q;
+  const rows = data || [];
+  let html = `
+  <div class="card" style="padding:0;"><div class="table-wrap"><table>
+    <tr><th>Folio</th><th>Cliente</th><th>Fecha</th><th>Forma</th><th class="num">Importe</th></tr>
+    ${rows.map(c=>`<tr><td>${c.folio}</td><td>${c.clientes?.nombre||'—'}</td><td>${c.fecha}</td><td>${c.forma_pago}</td><td class="num">${fmt(c.importe,c.moneda)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty-state">Sin cobros registrados aún.</td></tr>'}
+  </table></div></div>`;
+  document.getElementById('view-content').innerHTML = html;
+}
+
+let facturasPendientesCache = [];
+function modalCobro(){
+  const clienteOptions = CACHE.clientes.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  openModal(`
+    <h2>Registrar cobro</h2>
+    <div class="grid2">
+      <div class="field"><label>Cliente</label><select id="c-cliente" onchange="loadFacturasPendientes()"><option value="">Selecciona…</option>${clienteOptions}</select></div>
+      <div class="field"><label>Moneda</label><select id="c-moneda"><option value="MXN">MXN</option><option value="USD">USD</option></select></div>
+      <div class="field"><label>Fecha</label><input id="c-fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Forma de pago</label>
+        <select id="c-forma"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="cheque">Cheque</option><option value="tarjeta">Tarjeta</option><option value="otro">Otro</option></select>
+      </div>
+      <div class="field"><label>Importe recibido</label><input id="c-importe" type="number" step="0.01" value="0" oninput="renderAplicacion()"></div>
+      <div class="field"><label>Referencia</label><input id="c-ref" placeholder="Folio de transferencia, etc."></div>
+    </div>
+    <div id="facturas-pendientes" style="margin-top:10px;font-size:.85rem;color:var(--ink-soft);">Selecciona un cliente para ver sus facturas pendientes.</div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveCobro()">Guardar cobro</button>
+    </div>
+  `);
+}
+
+async function loadFacturasPendientes(){
+  const clienteId = document.getElementById('c-cliente').value;
+  if(!clienteId){ facturasPendientesCache=[]; return; }
+  const { data } = await sb.from('ventas').select('*').eq('cliente_id', clienteId).gt('saldo',0).order('fecha');
+  facturasPendientesCache = data || [];
+  renderAplicacion();
+}
+
+function renderAplicacion(){
+  const cont = document.getElementById('facturas-pendientes');
+  if(facturasPendientesCache.length===0){ cont.innerHTML = 'Este cliente no tiene facturas pendientes: el importe completo se guardará como anticipo disponible.'; return; }
+  let importe = Number(document.getElementById('c-importe').value||0);
+  let restante = importe;
+  const rows = facturasPendientesCache.map(f=>{
+    const aplicar = Math.min(restante, Number(f.saldo));
+    restante -= aplicar > 0 ? aplicar : 0;
+    return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+      <span>${f.folio} · saldo ${fmt(f.saldo, f.moneda)}</span>
+      <span style="font-family:var(--font-mono);color:var(--accent)">${fmt(aplicar>0?aplicar:0, f.moneda)}</span>
+    </div>`;
+  }).join('');
+  cont.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">Aplicación automática (más antigua primero)</div>${rows}
+    <div style="margin-top:6px;font-size:.8rem;color:${restante>0.01?'var(--accent)':'var(--ink-soft)'}">${restante>0.01?'Sobrante: '+fmt(restante,'MXN')+' quedará como anticipo disponible para futuras facturas.':'Todo el importe quedará aplicado.'}</div>`;
+}
+
+/* ============================================================
+   ANTICIPOS (saldo a favor del cliente)
+   ============================================================ */
+async function renderAnticipos(){
+  let q = sb.from('vw_anticipos_disponibles').select('*').order('fecha', {ascending:false});
+  if(CURRENT_USER.rol !== 'admin') q = q.eq('vendedor_id', CURRENT_USER.id);
+  const { data } = await q;
+  const rows = data || [];
+  const totalMXN = rows.filter(r=>r.moneda==='MXN').reduce((a,r)=>a+Number(r.disponible),0);
+  const totalUSD = rows.filter(r=>r.moneda==='USD').reduce((a,r)=>a+Number(r.disponible),0);
+  let html = `
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">Anticipos disponibles MXN</div><div class="value accent">${fmt(totalMXN,'MXN')}</div></div>
+    <div class="kpi"><div class="label">Anticipos disponibles USD</div><div class="value accent">${fmt(totalUSD,'USD')}</div></div>
+  </div>
+  <div class="card" style="padding:0;"><div class="table-wrap"><table>
+    <tr><th>Folio cobro</th><th>Cliente</th><th>Fecha</th><th class="num">Disponible</th><th></th></tr>
+    ${rows.map(r=>`<tr>
+      <td>${r.folio}</td><td>${r.cliente_nombre}</td><td>${r.fecha}</td>
+      <td class="num" style="color:var(--accent);font-weight:600;">${fmt(r.disponible, r.moneda)}</td>
+      <td><button class="btn btn-outline" style="padding:6px 12px;font-size:.78rem;" onclick="modalAplicarAnticipo('${r.cobro_id}','${r.cliente_id}',${r.disponible},'${r.moneda}')">Aplicar a factura</button></td>
+    </tr>`).join('') || '<tr><td colspan="5" class="empty-state">Sin anticipos disponibles. Un anticipo se genera cuando un cobro queda con sobrante sin aplicar a ninguna factura.</td></tr>'}
+  </table></div></div>`;
+  document.getElementById('view-content').innerHTML = html;
+}
+
+async function modalAplicarAnticipo(cobroId, clienteId, disponible, moneda){
+  const { data: ventas } = await sb.from('ventas').select('*').eq('cliente_id', clienteId).gt('saldo',0).order('fecha');
+  const rows = ventas || [];
+  if(rows.length===0){
+    openModal(`<h2>Aplicar anticipo</h2><div class="empty-state">Este cliente no tiene facturas pendientes a las cuales aplicar el anticipo.</div>
+      <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">Cerrar</button></div>`);
+    return;
+  }
+  openModal(`
+    <h2>Aplicar anticipo</h2>
+    <div style="color:var(--ink-soft);font-size:.85rem;margin-bottom:14px;">Disponible: <b style="color:var(--accent)">${fmt(disponible, moneda)}</b></div>
+    <div class="field"><label>Factura a cubrir</label>
+      <select id="ant-venta">${rows.map(v=>`<option value="${v.id}" data-saldo="${v.saldo}">${v.folio} — saldo ${fmt(v.saldo, v.moneda)}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label>Importe a aplicar</label><input id="ant-importe" type="number" step="0.01" value="${disponible}"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveAplicarAnticipo('${cobroId}', ${disponible})">Aplicar</button>
+    </div>
+  `);
+}
+
+async function saveAplicarAnticipo(cobroId, disponible){
+  const ventaId = document.getElementById('ant-venta').value;
+  const importe = Number(document.getElementById('ant-importe').value||0);
+  if(importe<=0){ toast('El importe debe ser mayor a cero.'); return; }
+  if(importe > disponible + 0.01){ toast('El importe excede el saldo disponible del anticipo.'); return; }
+  const { error } = await sb.rpc('fn_aplicar_anticipo', { p_cobro_id: cobroId, p_venta_id: ventaId, p_importe: importe });
+  if(error){ toast('Error al aplicar anticipo: ' + error.message); return; }
+  closeModal();
+  toast('Anticipo aplicado a la factura.');
+  renderAnticipos();
+}
+
+async function saveCobro(){
+  const clienteId = document.getElementById('c-cliente').value;
+  const importe = Number(document.getElementById('c-importe').value||0);
+  if(!clienteId){ toast('Selecciona un cliente.'); return; }
+  if(importe<=0){ toast('El importe debe ser mayor a cero.'); return; }
+  const moneda = document.getElementById('c-moneda').value;
+  const fecha = document.getElementById('c-fecha').value;
+  const forma = document.getElementById('c-forma').value;
+  const referencia = document.getElementById('c-ref').value.trim();
+  const folio = 'C-' + Date.now().toString().slice(-8);
+
+  const { data: cobro, error } = await sb.from('cobros').insert({
+    folio, cliente_id: clienteId, vendedor_id: CURRENT_USER.id, fecha, moneda, tipo_cambio:1,
+    forma_pago: forma, importe, referencia
+  }).select().single();
+  if(error){ toast('Error al guardar cobro: ' + error.message); return; }
+
+  let restante = importe;
+  const aplicaciones = [];
+  for(const f of facturasPendientesCache){
+    if(restante<=0) break;
+    const aplicar = Math.min(restante, Number(f.saldo));
+    if(aplicar>0){ aplicaciones.push({ cobro_id: cobro.id, venta_id: f.id, importe_aplicado: aplicar }); restante -= aplicar; }
+  }
+  if(aplicaciones.length){
+    const { error: e2 } = await sb.from('cobro_aplicaciones').insert(aplicaciones);
+    if(e2){ toast('Cobro creado pero hubo un error al aplicar: ' + e2.message); }
+  }
+  closeModal();
+  toast('Cobro ' + folio + ' registrado.');
+  renderCobranza();
+}
+
+/* ============================================================
+   CxC / ANTIGÜEDAD
+   ============================================================ */
+async function renderCxC(){
+  let q = sb.from('vw_antiguedad_saldos').select('*').gt('saldo',0).order('dias_vencido',{ascending:false});
+  if(CURRENT_USER.rol !== 'admin') q = q.eq('vendedor_id', CURRENT_USER.id);
+  const { data } = await q;
+  const rows = data || [];
+
+  // agrupar por cliente para vista de estado de cuenta rápido
+  const porCliente = {};
+  rows.forEach(r=>{
+    porCliente[r.cliente_id] = porCliente[r.cliente_id] || {nombre:r.cliente_nombre, total:0, rangos:{'0-30':0,'31-60':0,'61-90':0,'90+':0,'vigente':0}};
+    porCliente[r.cliente_id].total += Number(r.saldo);
+    if(porCliente[r.cliente_id].rangos[r.rango]!==undefined) porCliente[r.cliente_id].rangos[r.rango]+=Number(r.saldo);
+  });
+
+  let html = `<div class="toolbar"><input type="search" id="cxc-search" placeholder="Buscar cliente…" oninput="filterTable('cxc-search','cxc-table')"></div>
+  <div class="card" style="padding:0;"><div class="table-wrap"><table id="cxc-table">
+    <tr><th>Cliente</th><th class="num">Vigente</th><th class="num">0-30</th><th class="num">31-60</th><th class="num">61-90</th><th class="num">90+</th><th class="num">Total</th></tr>
+    ${Object.values(porCliente).sort((a,b)=>b.total-a.total).map(c=>`
+      <tr>
+        <td>${c.nombre}</td>
+        <td class="num">${fmt(c.rangos.vigente,'MXN')}</td>
+        <td class="num">${fmt(c.rangos['0-30'],'MXN')}</td>
+        <td class="num">${fmt(c.rangos['31-60'],'MXN')}</td>
+        <td class="num">${fmt(c.rangos['61-90'],'MXN')}</td>
+        <td class="num" style="color:var(--red);font-weight:600;">${fmt(c.rangos['90+'],'MXN')}</td>
+        <td class="num" style="font-weight:700;">${fmt(c.total,'MXN')}</td>
+      </tr>`).join('') || '<tr><td colspan="7" class="empty-state">Sin saldos pendientes 🎉</td></tr>'}
+  </table></div></div>`;
+  document.getElementById('view-content').innerHTML = html;
+}
+
+/* ---------------- utilidades tabla ---------------- */
+function filterTable(inputId, tableId){
+  const term = document.getElementById(inputId).value.toLowerCase();
+  const table = document.getElementById(tableId);
+  Array.from(table.rows).slice(1).forEach(row=>{
+    row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+  });
+}
+
+/* ---------------- bottom nav (mobile) ---------------- */
+document.querySelectorAll('.bottom-nav .nav-item').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    goView(el.dataset.view);
+    document.querySelectorAll('.bottom-nav .nav-item').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+  });
+});
+
+/* ---------------- init ---------------- */
+(async function init(){
+  const { data: { session } } = await sb.auth.getSession();
+  if(session){ await loadCurrentUser(); }
+})();
+</script>
+</body>
+</html>
