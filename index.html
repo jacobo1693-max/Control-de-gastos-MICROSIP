@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
 :root{
   --bg:#F7F5F1;
@@ -584,10 +585,10 @@ async function renderPedidos(){
   <div class="toolbar"><input type="search" id="p-search" placeholder="Buscar folio o cliente…" oninput="filterTable('p-search','p-table')"></div>
   <div class="card" style="padding:0;"><div class="table-wrap"><table id="p-table">
     <tr><th>Folio</th><th>Cliente</th><th>Fecha</th><th>Estatus</th><th></th></tr>
-    ${rows.map(p=>`<tr>
+    ${rows.map(p=>`<tr class="row-click" onclick="modalVerPedido('${p.id}')">
       <td>${p.folio}</td><td>${p.clientes?.nombre||'—'}</td><td>${p.fecha}</td>
       <td>${badgePedido(p.estatus)}</td>
-      <td>${p.estatus==='pendiente'||p.estatus==='parcial' ? `<button class="btn btn-accent" style="padding:6px 12px;font-size:.78rem;" onclick="modalSurtir('${p.id}')">Surtir</button>` : ''}</td>
+      <td>${p.estatus==='pendiente'||p.estatus==='parcial' ? `<button class="btn btn-accent" style="padding:6px 12px;font-size:.78rem;" onclick="event.stopPropagation();modalSurtir('${p.id}')">Surtir</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="5" class="empty-state">Sin pedidos registrados aún.</td></tr>'}
   </table></div></div>`;
   document.getElementById('view-content').innerHTML = html;
@@ -670,6 +671,79 @@ async function savePedido(){
   closeModal();
   toast('Pedido ' + folio + ' guardado.');
   renderPedidos();
+}
+
+async function modalVerPedido(pedidoId){
+  const { data: pedido } = await sb.from('pedidos').select('*, clientes(nombre, telefono, direccion)').eq('id', pedidoId).single();
+  const { data: partidas } = await sb.from('pedido_partidas').select('*').eq('pedido_id', pedidoId);
+  const rows = partidas || [];
+  openModal(`
+    <h2>Pedido ${pedido.folio} ${badgePedido(pedido.estatus)}</h2>
+    <div style="color:var(--ink-soft);font-size:.85rem;margin-bottom:14px;line-height:1.6;">
+      Cliente: <b style="color:var(--ink)">${pedido.clientes?.nombre||'—'}</b><br>
+      ${pedido.clientes?.telefono?('Tel: '+pedido.clientes.telefono+'<br>'):''}
+      Fecha: ${pedido.fecha} · Moneda: ${pedido.moneda}
+      ${pedido.notas?('<br>Notas: '+pedido.notas):''}
+    </div>
+    <div class="table-wrap"><table>
+      <tr><th>Artículo</th><th class="num">Pedido</th><th class="num">Surtido</th><th class="num">Pendiente</th></tr>
+      ${rows.map(p=>`<tr><td>${p.descripcion}</td><td class="num">${p.cantidad_pedida}</td><td class="num">${p.cantidad_surtida}</td><td class="num">${Number(p.cantidad_pedida)-Number(p.cantidad_surtida)}</td></tr>`).join('')}
+    </table></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cerrar</button>
+      ${(pedido.estatus==='pendiente'||pedido.estatus==='parcial') ? `<button class="btn btn-accent" onclick="closeModal();modalSurtir('${pedidoId}')">Surtir</button>`:''}
+      <button class="btn btn-primary" onclick="imprimirPedido('${pedidoId}')">🖨 Imprimir</button>
+    </div>
+  `);
+}
+
+async function imprimirPedido(pedidoId){
+  const { data: pedido } = await sb.from('pedidos').select('*, clientes(nombre, telefono, direccion)').eq('id', pedidoId).single();
+  const { data: partidas } = await sb.from('pedido_partidas').select('*').eq('pedido_id', pedidoId);
+  const rows = partidas || [];
+
+  // generar QR de cada artículo (codifica el código del artículo, para escanear en bodega)
+  const qrDataUrls = {};
+  for(const p of rows){
+    const codigoArt = CACHE.articulos.find(a=>a.id===p.articulo_id)?.codigo || p.descripcion;
+    try{ qrDataUrls[p.id] = await QRCode.toDataURL(codigoArt, { width: 90, margin: 1 }); }
+    catch(e){ qrDataUrls[p.id] = ''; }
+  }
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>Pedido ${pedido.folio}</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:24px;color:#1B2A3D;}
+      h1{font-size:1.3rem;margin-bottom:2px;}
+      .meta{color:#5B6B7C;font-size:.85rem;margin-bottom:20px;}
+      table{width:100%;border-collapse:collapse;font-size:.9rem;}
+      th,td{border-bottom:1px solid #E4E0D8;padding:10px 8px;text-align:left;vertical-align:middle;}
+      th{font-size:.72rem;text-transform:uppercase;color:#5B6B7C;}
+      .num{text-align:right;}
+      img.qr{width:70px;height:70px;}
+      @media print{ body{padding:0;} }
+    </style></head><body>
+    <h1>Pedido ${pedido.folio}</h1>
+    <div class="meta">
+      Cliente: ${pedido.clientes?.nombre||'—'} ${pedido.clientes?.telefono?(' · Tel: '+pedido.clientes.telefono):''}<br>
+      Fecha: ${pedido.fecha} · Estatus: ${pedido.estatus}
+      ${pedido.notas?('<br>Notas: '+pedido.notas):''}
+    </div>
+    <table>
+      <tr><th>QR</th><th>Artículo</th><th class="num">Pedido</th><th class="num">Surtido</th><th class="num">Pendiente</th></tr>
+      ${rows.map(p=>`<tr>
+        <td>${qrDataUrls[p.id] ? `<img class="qr" src="${qrDataUrls[p.id]}">` : ''}</td>
+        <td>${p.descripcion}</td>
+        <td class="num">${p.cantidad_pedida}</td>
+        <td class="num">${p.cantidad_surtida}</td>
+        <td class="num">${Number(p.cantidad_pedida)-Number(p.cantidad_surtida)}</td>
+      </tr>`).join('')}
+    </table>
+    <script>window.onload = () => window.print();</script>
+    </body></html>
+  `);
+  win.document.close();
 }
 
 async function modalSurtir(pedidoId){
