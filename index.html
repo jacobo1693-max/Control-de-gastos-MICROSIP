@@ -740,7 +740,7 @@ async function imprimirPedido(pedidoId){
         <td class="num">${Number(p.cantidad_pedida)-Number(p.cantidad_surtida)}</td>
       </tr>`).join('')}
     </table>
-    <script>window.onload = () => window.print();</script>
+    <script>window.onload = () => window.print();<\/script>
     </body></html>
   `);
   win.document.close();
