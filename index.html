@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
 :root{
   --bg:#F7F5F1;
@@ -706,8 +705,7 @@ async function imprimirPedido(pedidoId){
   const qrDataUrls = {};
   for(const p of rows){
     const codigoArt = CACHE.articulos.find(a=>a.id===p.articulo_id)?.codigo || p.descripcion;
-    try{ qrDataUrls[p.id] = await QRCode.toDataURL(codigoArt, { width: 90, margin: 1 }); }
-    catch(e){ qrDataUrls[p.id] = ''; }
+    qrDataUrls[p.id] = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=0&data=' + encodeURIComponent(codigoArt);
   }
 
   const win = window.open('', '_blank');
